@@ -10,8 +10,6 @@ Minimum Product Version: 1\.2\.265
 
 Use Duo Auth API to authenticate actions\.
 
-# Duo App for Phantom
-
 ### Configuration Variables
 The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a Auth API asset in SOAR.
 
