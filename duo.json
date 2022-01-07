@@ -4,7 +4,7 @@
     "description": "Use Duo Auth API to authenticate actions.",
     "type": "identity management",
     "main_module": "duo_connector.py",
-    "app_version": "1.0.1",
+    "app_version": "1.0.2",
     "product_vendor": "Duo Security, Inc.",
     "product_name": "Auth API",
     "product_version_regex": ".*",
@@ -105,7 +105,7 @@
             ]
         }
     ],
-    "utctime_updated": "2018-01-02T20:45:49.000000Z",
+    "utctime_updated": "2022-01-07T22:40:07.000000Z",
     "pip_dependencies": {
         "wheel": [
             {
