@@ -1,132 +1,1973 @@
 {
     "appid": "22e0abbb-4577-4098-91ab-fd30c64ff1cd",
     "name": "Duo",
-    "description": "Use Duo Auth API to authenticate actions.",
+    "description": "This app integrates with Duo to perform generic, investigative actions",
     "type": "identity management",
     "main_module": "duo_connector.py",
-    "app_version": "1.0.2",
+    "app_version": "2.0.0",
     "product_vendor": "Duo Security, Inc.",
-    "product_name": "Auth API",
+    "product_name": "Admin API",
     "product_version_regex": ".*",
-    "logo": "duo.png",
-    "min_phantom_version": "1.2.265",
-    "publisher": "Blackstone",
+    "logo": "logo_duo.svg",
+    "logo_dark": "logo_duo_dark.svg",
+    "min_phantom_version": "5.2.0",
+    "python_version": "3",
+    "publisher": "Splunk",
     "package_name": "phantom_duo",
-    "license": "Copyright (c) Blackstone 2016",
-    "consolidate_widgets": false,
+    "license": "Copyright (c) Splunk 2022",
+    "fips_compliant": true,
+    "latest_tested_versions": [
+        "D243.18"
+    ],
     "configuration": {
         "api_host": {
             "data_type": "string",
-            "description": "Duo Auth API endpoint.",
+            "description": "Duo API host",
             "order": 0,
             "required": true
         },
         "ikey": {
-            "data_type": "string",
-            "description": "Duo Auth API integration key.",
+            "data_type": "password",
+            "description": "Duo API integration key",
             "order": 1,
             "required": true
         },
         "skey": {
-            "data_type": "string",
-            "description": "Duo Auth API secret key.",
+            "data_type": "password",
+            "description": "Duo API secret key",
             "order": 2,
             "required": true
-        },
-        "verify_server_cert": {
-            "data_type": "boolean",
-            "description": "Verify server certificate",
-            "required": true,
-            "order": 5,
-            "default": true
         }
     },
     "actions": [
         {
             "action": "test connectivity",
-            "description": "Validate the asset configuration for connectivity. This action checks the connection and configuration.",
+            "description": "Validate the asset configuration for connectivity. This action checks the connection and configuration",
             "type": "test",
-            "identifier": "test_asset_connectivity",
+            "identifier": "test_connectivity",
             "read_only": true,
-            "lock": {
-                "enabled": false
-            },
             "parameters": {},
             "output": [],
             "versions": "EQ(*)"
         },
         {
-            "action": "authorize",
-            "description": "Authorize an action using Duo Push",
-            "type": "generic",
-            "identifier": "authorize",
+            "action": "retrieve users",
+            "description": "Retrieve Users",
+            "type": "investigate",
+            "identifier": "retrieve_users",
             "read_only": true,
-            "versions": "EQ(*)",
-            "lock": {
-                "enabled": false
-            },
             "parameters": {
-                "user": {
-                    "description": "User who can authorize the action.",
+                "username": {
+                    "description": "Specify a user name (or username alias) to look up for a single user",
                     "data_type": "string",
-                    "contains": [
-                        "email"
-                    ],
-                    "required": true,
-                    "order": 0,
-                    "primary": true
+                    "order": 0
                 },
-                "info": {
-                    "description": "URL-encoded keys/values with additional info.",
-                    "data_type": "string",
-                    "required": false,
-                    "order": 1
+                "limit": {
+                    "description": "limit of Response",
+                    "data_type": "numeric",
+                    "order": 1,
+                    "default": 100
                 },
-                "type": {
-                    "description": "Shows in the Duo Mobile app notification.",
-                    "data_type": "string",
-                    "required": false,
-                    "order": 2
+                "offset": {
+                    "description": "offset of Response",
+                    "data_type": "numeric",
+                    "order": 2,
+                    "default": 0
                 }
-            },
-            "render": {
-                "type": "table",
-                "width": 6,
-                "height": 5,
-                "title": "DUO Authentication Attempt"
             },
             "output": [
                 {
-                    "data_path": "action_result.data.*.result",
+                    "data_path": "action_result.status",
                     "data_type": "string",
-                    "column_name": "Result",
-                    "column_order": 0
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.username",
+                    "data_type": "string",
+                    "example_values": [
+                        "root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.limit",
+                    "data_type": "numeric",
+                    "example_values": [
+                        100
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.offset",
+                    "data_type": "numeric",
+                    "example_values": [
+                        0
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.0.*.username",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.0.*.user_id",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.0.*.realname",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.0.*.is_enrolled",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.0.*.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.email",
+                    "data_type": "string",
+                    "example_values": [
+                        "test@gmail.com"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.notes",
+                    "data_type": "string",
+                    "example_values": [
+                        "Nothing"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.alias2",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_2"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.alias3",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_3"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.alias4",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_4"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.aliases.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.created",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1655297510
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.lastname",
+                    "data_type": "string",
+                    "example_values": [
+                        "Wick"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.firstname",
+                    "data_type": "string",
+                    "example_values": [
+                        "John"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.last_login",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.last_directory_sync",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "new Phone"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Mobile"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.model",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.number",
+                    "data_type": "string",
+                    "example_values": [
+                        "+917383120321"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.phone_id",
+                    "data_type": "string",
+                    "example_values": [
+                        "DPS6PDCLHF3B5SZXN7AA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.platform",
+                    "data_type": "string",
+                    "example_values": [
+                        "Google Android"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.tampered",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.activated",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.encrypted",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.last_seen",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.screenlock",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.fingerprint",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.*.phones.*.sms_passcodes_sent",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.user_found",
+                    "data_type": "numeric",
+                    "example_values": [
+                        278
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.email",
+                    "data_type": "string",
+                    "example_values": [
+                        "test@gmail.com"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.notes",
+                    "data_type": "string",
+                    "example_values": [
+                        "Nothing"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.alias2",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_2"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.alias3",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_3"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.alias4",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_4"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "Test"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Mobile"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.model",
+                    "data_type": "string",
+                    "example_values": [
+                        "Vivo I2012"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.number",
+                    "data_type": "string",
+                    "example_values": [
+                        "+919080705060"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.phone_id",
+                    "data_type": "string",
+                    "example_values": [
+                        "DP9IP4SCA6QXW5ZRECAA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.platform",
+                    "data_type": "string",
+                    "example_values": [
+                        "Google Android"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.tampered",
+                    "data_type": "string",
+                    "example_values": [
+                        "Not tampered"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.activated",
+                    "data_type": "boolean",
+                    "example_values": [
+                        true
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.encrypted",
+                    "data_type": "string",
+                    "example_values": [
+                        "Encrypted"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.last_seen",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.screenlock",
+                    "data_type": "string",
+                    "example_values": [
+                        "Locked"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.fingerprint",
+                    "data_type": "string",
+                    "example_values": [
+                        "Configured"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phones.*.sms_passcodes_sent",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "active"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.aliases.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.created",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1655297510
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.user_id",
+                    "data_type": "string",
+                    "example_values": [
+                        "DUAIHCGO1W72EQP5A0NX"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.lastname",
+                    "data_type": "string",
+                    "example_values": [
+                        "Wick"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.realname",
+                    "data_type": "string",
+                    "example_values": [
+                        "root root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.username",
+                    "data_type": "string",
+                    "example_values": [
+                        "root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.firstname",
+                    "data_type": "string",
+                    "example_values": [
+                        "John"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.last_login",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.is_enrolled",
+                    "data_type": "boolean",
+                    "example_values": [
+                        true
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.last_directory_sync",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.users_found",
+                    "data_type": "numeric",
+                    "example_values": [
+                        100
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "numeric"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "User found: 100"
+                    ]
                 }
-            ]
+            ],
+            "render": {
+                "title": "Users",
+                "type": "custom",
+                "view": "duo_view.display_view",
+                "height": 5,
+                "width": 12
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "get phone",
+            "description": "Get Phone",
+            "type": "investigate",
+            "identifier": "get_phone",
+            "read_only": true,
+            "parameters": {
+                "phone_id": {
+                    "description": "Phone ID",
+                    "data_type": "string",
+                    "order": 0,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ],
+                    "required": true
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ]
+
+                },
+                {
+                    "data_path": "action_result.parameter.phone_id",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.number",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.activated",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.model",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.platform",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "Test"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Mobile"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.email",
+                    "data_type": "string",
+                    "example_values": [
+                        "test@gmail.com"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.notes",
+                    "data_type": "string",
+                    "example_values": [
+                        "Nothing"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias2",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_2"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias3",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_3"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias4",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_4"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "active"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.aliases.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.created",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1655297510
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.user_id",
+                    "data_type": "string",
+                    "example_values": [
+                        "DUAIHCGO1W72EQP5A0NX"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.lastname",
+                    "data_type": "string",
+                    "example_values": [
+                        "Wick"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.realname",
+                    "data_type": "string",
+                    "example_values": [
+                        "root root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.username",
+                    "data_type": "string",
+                    "example_values": [
+                        "root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.firstname",
+                    "data_type": "string",
+                    "example_values": [
+                        "John"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.last_login",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.is_enrolled",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.last_directory_sync",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phone_id",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.*.tampered",
+                    "data_type": "string",
+                    "example_values": [
+                        "Not tampered"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.encrypted",
+                    "data_type": "string",
+                    "example_values": [
+                        "Encrypted"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.last_seen",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-20T12:48:55"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.screenlock",
+                    "data_type": "string",
+                    "example_values": [
+                        "Locked"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.fingerprint",
+                    "data_type": "string",
+                    "example_values": [
+                        "Configured"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.sms_passcodes_sent",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Phone found Successfully"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Get phone",
+                "type": "custom",
+                "view": "duo_view.display_view"
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "bypasscode for user",
+            "description": "Clear all existing bypass codes for the user and return newly generated bypass codes",
+            "type": "generic",
+            "identifier": "bypasscode_for_user",
+            "read_only": false,
+            "parameters": {
+                "user_id": {
+                    "description": "User ID",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 0,
+                    "primary": true,
+                    "contains": [
+                        "user id"
+                    ]
+                },
+                "count": {
+                    "description": "Number of new bypass codes to create. At most 10 codes (the default) can be created at a time. Codes will be generated randomly",
+                    "data_type": "numeric",
+                    "order": 1
+                },
+                "codes": {
+                    "description": "CSV(Comma Separated Value) string of codes to use. Mutually exclusive with count.(exact nine digits)",
+                    "data_type": "string",
+                    "order": 2
+                },
+                "reuse_count": {
+                    "description": "The number of times generated bypass codes can be used. If 0, the codes will have an infinite reuse_count. Default: 1",
+                    "data_type": "numeric",
+                    "order": 3,
+                    "default": 1
+                },
+                "valid_secs": {
+                    "description": "The number of seconds for which generated bypass codes remain valid. If 0 (the default) the codes will never expire",
+                    "data_type": "numeric",
+                    "order": 4,
+                    "default": 0
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ],
+                    "column_name": "Status",
+                    "column_order": 1
+                },
+                {
+                    "data_path": "action_result.parameter.user_id",
+                    "data_type": "string",
+                    "column_name": "User ID",
+                    "column_order": 0,
+                    "contains": [
+                        "user id"
+                    ],
+                    "example_values": [
+                        "DUMT2ETZR0F9QDW5SAAA"
+                    ]
+
+                },
+                {
+                    "data_path": "action_result.parameter.count",
+                    "data_type": "numeric",
+                    "example_values": [
+                        10
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.codes",
+                    "data_type": "string",
+                    "example_values": [
+                        "123456789"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.reuse_count",
+                    "data_type": "numeric",
+                    "example_values": [
+                        10
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.valid_secs",
+                    "data_type": "numeric",
+                    "example_values": [
+                        3600
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Bypasscode generated Successfully"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Create bypass codes for user",
+                "type": "custom",
+                "view": "duo_view.display_view"
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "associate phone",
+            "description": "Associate a phone with the user",
+            "type": "generic",
+            "identifier": "associate_phone_with_user",
+            "read_only": false,
+            "parameters": {
+                "user_id": {
+                    "description": "User ID",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 0,
+                    "primary": true,
+                    "contains": [
+                        "user id"
+                    ]
+                },
+                "phone_id": {
+                    "description": "Phone ID to associate with the user",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 1,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ]
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ],
+                    "column_name": "Status",
+                    "column_order": 2
+                },
+                {
+                    "data_path": "action_result.parameter.user_id",
+                    "data_type": "string",
+                    "column_name": "User ID",
+                    "column_order": 0,
+                    "contains": [
+                        "user id"
+                    ],
+                    "example_values": [
+                        "DUMT2ETZR0F9QDW5SAAA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.phone_id",
+                    "data_type": "string",
+                    "column_name": "Phone ID",
+                    "column_order": 1,
+                    "contains": [
+                        "phone id"
+                    ],
+                    "example_values": [
+                        "DPC0DR24W9JCOY2DNAAA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*",
+                    "data_type": "string"
+
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Phone associated to user"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Associate phone with user",
+                "type": "table",
+                "height": 5,
+                "width": 12
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "create phone",
+            "description": "Create a new phone with a specified phone number and other parameters",
+            "type": "generic",
+            "identifier": "create_phone",
+            "read_only": false,
+            "parameters": {
+                "number": {
+                    "description": "Number with country code",
+                    "data_type": "string",
+                    "order": 0
+                },
+                "name": {
+                    "description": "Phone Name",
+                    "data_type": "string",
+                    "order": 1
+                },
+                "extension": {
+                    "description": "Extension. Only 0-9, #, and * are permitted",
+                    "data_type": "string",
+                    "order": 2
+                },
+                "type": {
+                    "description": "Phone type",
+                    "data_type": "string",
+                    "order": 3,
+                    "default": "Unknown",
+                    "value_list": [
+                        "Unknown",
+                        "Mobile",
+                        "Landline"
+                    ]
+                },
+                "platform": {
+                    "description": "Phone platform",
+                    "data_type": "string",
+                    "order": 4,
+                    "default": "Unknown",
+                    "value_list": [
+                        "Unknown",
+                        "Android",
+                        "iOS",
+                        "Windows Phone",
+                        "Windows 10 Mobile",
+                        "BlackBerry",
+                        "BlackBerry 10",
+                        "J2ME",
+                        "WebOS",
+                        "Symbian",
+                        "Windows Mobile",
+                        "Generic Smartphone"
+                    ]
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ],
+                    "column_name": "Status",
+                    "column_order": 1
+                },
+                {
+                    "data_path": "action_result.parameter.number",
+                    "data_type": "string",
+                    "example_values": [
+                        "+919020304050"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "Work Phone", "Old Phone"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.platform",
+                    "data_type": "string",
+                    "example_values": [
+                        "Android"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.data.0.phone_id",
+                    "data_type": "string",
+                    "column_name": "Phone ID",
+                    "column_order": 0,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "Work Phone"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.model",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.number",
+                    "data_type": "string",
+                    "example_values": [
+                        "+919020304050"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.platform",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.tampered",
+                    "data_type": "string",
+                    "example_values": [
+                        "Not tampered"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.activated",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.encrypted",
+                    "data_type": "string",
+                    "example_values": [
+                        "Encrypted"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.last_seen",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-20T12:48:55"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.screenlock",
+                    "data_type": "string",
+                    "example_values": [
+                        "Locked"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.fingerprint",
+                    "data_type": "string",
+                    "example_values": [
+                        "Configured"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.sms_passcodes_sent",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Phone created successfully"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Create phone",
+                "type": "table",
+                "height": 5,
+                "width": 12
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "modify phone",
+            "description": "Change the details of the phone",
+            "type": "generic",
+            "identifier": "modify_phone",
+            "read_only": false,
+            "parameters": {
+                "phone_id": {
+                    "description": "Phone ID",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 1,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ]
+                },
+                "number": {
+                    "description": "The new number with country code",
+                    "data_type": "string",
+                    "order": 2
+                },
+                "name": {
+                    "description": "Phone name",
+                    "data_type": "string",
+                    "order": 3
+                },
+                "extension": {
+                    "description": "Extension. Only 0-9, #, and * are permitted",
+                    "data_type": "string",
+                    "order": 4
+                },
+                "type": {
+                    "description": "Phone type",
+                    "data_type": "string",
+                    "order": 5,
+                    "default": "Unknown",
+                    "value_list": [
+                        "Unknown",
+                        "Mobile",
+                        "Landline"
+                    ]
+                },
+                "platform": {
+                    "description": "Phone platform",
+                    "data_type": "string",
+                    "order": 6,
+                    "default": "Unknown",
+                    "value_list": [
+                        "Unknown",
+                        "Android",
+                        "iOS",
+                        "Windows Phone",
+                        "Windows 10 Mobile",
+                        "BlackBerry",
+                        "BlackBerry 10",
+                        "J2ME",
+                        "WebOS",
+                        "Symbian",
+                        "Windows Mobile",
+                        "Generic Smartphone"
+                    ]
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.phone_id",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.parameter.number",
+                    "data_type": "string",
+                    "example_values": [
+                        "+919020304050"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "Work Phone", "Old Phone"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.platform",
+                    "data_type": "string",
+                    "example_values": [
+                        "Android"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.name",
+                    "data_type": "string",
+                    "example_values": [
+                        "Work Phone"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.type",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.model",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.email",
+                    "data_type": "string",
+                    "example_values": [
+                        "test@gmail.com"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.notes",
+                    "data_type": "string",
+                    "example_values": [
+                        "Nothing"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias2",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_2"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias3",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_3"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.alias4",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1_4"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "active"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.aliases.alias1",
+                    "data_type": "string",
+                    "example_values": [
+                        "root1"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.created",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1655297510
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.user_id",
+                    "data_type": "string",
+                    "example_values": [
+                        "DUAIHCGO1W72EQP5A0NX"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.lastname",
+                    "data_type": "string",
+                    "example_values": [
+                        "Wick"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.realname",
+                    "data_type": "string",
+                    "example_values": [
+                        "root root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.username",
+                    "data_type": "string",
+                    "example_values": [
+                        "root"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.firstname",
+                    "data_type": "string",
+                    "example_values": [
+                        "Wick"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.last_login",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.is_enrolled",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.users.*.last_directory_sync",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-17T17:55:28"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.number",
+                    "data_type": "string",
+                    "example_values": [
+                        "+916354620111"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.phone_id",
+                    "data_type": "string",
+                    "example_values": [
+                        "DPC0DR24W9JCOY2DAAAA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.platform",
+                    "data_type": "string",
+                    "example_values": [
+                        "Unknown"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.tampered",
+                    "data_type": "string",
+                    "example_values": [
+                        "Not tampered"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.activated",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.encrypted",
+                    "data_type": "string",
+                    "example_values": [
+                        "Encrypted"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.extension",
+                    "data_type": "string",
+                    "example_values": [
+                        "*12"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.last_seen",
+                    "data_type": "string",
+                    "example_values": [
+                        "2022-06-20T12:48:55"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.screenlock",
+                    "data_type": "string",
+                    "example_values": [
+                        "Locked"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.fingerprint",
+                    "data_type": "string",
+                    "example_values": [
+                        "Configured"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.sms_passcodes_sent",
+                    "data_type": "boolean",
+                    "example_values": [
+                        false
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Modify phone successful"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Modify phone",
+                "type": "custom",
+                "view": "duo_view.display_view"
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "delete phone",
+            "description": "Delete Phone",
+            "type": "generic",
+            "identifier": "delete_phone",
+            "read_only": false,
+            "parameters": {
+                "phone_id": {
+                    "description": "Phone ID",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 0,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ]
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ],
+                    "column_name": "Status",
+                    "column_order": 1
+                },
+                {
+                    "data_path": "action_result.parameter.phone_id",
+                    "data_type": "string",
+                    "column_name": "Phone ID",
+                    "column_order": 0,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ],
+                    "example_values": [
+                        "DPC0DR24W9JCOY2DNAAA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Phone deleted successfully"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Delete phone",
+                "type": "table",
+                "height": 5,
+                "width": 12
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "send activation code",
+            "description": "Generate a Duo Mobile activation code and send it to the phone via SMS",
+            "type": "generic",
+            "identifier": "activation_code_via_sms",
+            "read_only": false,
+            "parameters": {
+                "phone_id": {
+                    "description": "Phone ID",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 0,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ]
+                },
+                "valid_secs": {
+                    "description": "The number of seconds this activation code remains valid",
+                    "data_type": "numeric",
+                    "order": 1,
+                    "default": 86400
+                },
+                "install": {
+                    "description": "Mark checkbox to installation SMS message to be sent before the activation messages. Default: false(Not marked)",
+                    "data_type": "boolean",
+                    "order": 4,
+                    "default": false
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ],
+                    "column_name": "Status",
+                    "column_order": 1
+                },
+                {
+                    "data_path": "action_result.parameter.phone_id",
+                    "data_type": "string",
+                    "column_name": "Phone ID",
+                    "column_order": 0,
+                    "primary": true,
+                    "contains": [
+                        "phone id"
+                    ],
+                    "example_values": [
+                        "DPC0DR24W9JCOY2DNAAA"
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.valid_secs",
+                    "data_type": "numeric",
+                    "example_values": [
+                        3600
+                    ]
+                },
+                {
+                    "data_path": "action_result.parameter.install",
+                    "data_type": "boolean",
+                    "example_values": [
+                        true
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.valid_secs",
+                    "data_type": "numeric",
+                    "example_values": [
+                        86400
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.activation_msg",
+                    "data_type": "string",
+                    "example_values": [
+                        "To activate the app, click and open this link with Duo Mobile: https://m-cc57ea11.duosecurity.com/android/NRuHozriSW3sY1yT9WMn"
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.activation_barcode",
+                    "data_type": "string",
+                    "example_values": [
+                        "https://api-cc57ea11.duosecurity.com/frame/qr?value=duo%3A%2F%2FNRuHozriSW3sY1yT9WMn-YXBpLWNjNTdlYTExLmR1b3NlY3VyaXR5LmNvbQ"
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "action_result.data.*.installation_msg",
+                    "data_type": "string",
+                    "example_values": [
+                        "Welcome to Duo! To install the Duo Mobile app, click this link: http://m-cc57ea11.duosecurity.com"
+                    ]
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Send activation code via SMS successful"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Send activation code via SMS",
+                "type": "table",
+                "height": 5,
+                "width": 12
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "synchronize user",
+            "description": "Synchronize User from Directory",
+            "type": "generic",
+            "identifier": "synchronize_user_from_directory",
+            "read_only": false,
+            "parameters": {
+                "directory_key": {
+                    "description": "directory_key of the directory",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 0
+                },
+                "username": {
+                    "description": "The user to update or create via directory sync. This should be the same as the value for the user's username attribute in the source directory as configured in the sync",
+                    "data_type": "string",
+                    "required": true,
+                    "order": 1
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "example_values": [
+                        "success",
+                        "failed"
+                    ],
+                    "column_name": "Status",
+                    "column_order": 3
+                },
+                {
+                    "data_path": "action_result.parameter.username",
+                    "data_type": "string",
+                    "column_name": "User Name",
+                    "column_order": 0
+                },
+                {
+                    "data_path": "action_result.parameter.directory_key",
+                    "data_type": "string",
+                    "column_name": "Directory Key",
+                    "column_order": 1
+                },
+                {
+                    "data_path": "action_result.data.0.*.status",
+                    "data_type": "string",
+                    "column_name": "User'S Status",
+                    "column_order": 2
+                },
+                {
+                    "data_path": "action_result.summary.status",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string",
+                    "example_values": [
+                        "Successfully synchronized user with directory"
+                    ]
+                }
+            ],
+            "render": {
+                "title": "Sync user with directory",
+                "type": "table",
+                "height": 5,
+                "width": 12
+            },
+            "versions": "EQ(*)"
         }
     ],
     "utctime_updated": "2022-01-07T22:40:07.000000Z",
     "pip_dependencies": {
         "wheel": [
             {
+                "module": "beautifulsoup4",
+                "input_file": "wheels/py3/beautifulsoup4-4.9.1-py3-none-any.whl"
+            },
+            {
                 "module": "certifi",
-                "input_file": "wheels/certifi-2021.10.8-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/certifi-2021.10.8-py2.py3-none-any.whl"
             },
             {
                 "module": "chardet",
-                "input_file": "wheels/chardet-3.0.4-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/chardet-3.0.4-py2.py3-none-any.whl"
             },
             {
                 "module": "idna",
-                "input_file": "wheels/idna-2.10-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/idna-2.10-py2.py3-none-any.whl"
             },
             {
                 "module": "requests",
-                "input_file": "wheels/requests-2.25.0-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/requests-2.25.0-py2.py3-none-any.whl"
+            },
+            {
+                "module": "soupsieve",
+                "input_file": "wheels/py3/soupsieve-2.3.1-py3-none-any.whl"
             },
             {
                 "module": "urllib3",
-                "input_file": "wheels/urllib3-1.26.7-py2.py3-none-any.whl"
+                "input_file": "wheels/shared/urllib3-1.26.8-py2.py3-none-any.whl"
             }
         ]
     }
