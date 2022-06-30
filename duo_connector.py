@@ -273,9 +273,11 @@ class DuoConnector(BaseConnector):
         for key in parameters:
             if key in available_keys:
                 params[key] = param[key]
-                if isinstance(params[key], bool):
+                if isinstance(params[key], bool) or isinstance(params[key], str):
                     continue
-                elif isinstance(params[key], int):
+                params[key] = int(params[key])
+                if isinstance(params[key], int):
+                    allow_zero = False
                     if key in ALLOW_ZERO_TRUE and action_name != ACTION_ID_ACTIVATION_CODE_VIA_SMS:
                         allow_zero = True
                     ret_val, _ = self._validate_integer(action_result, params.get(key), key, allow_zero=allow_zero)
@@ -427,10 +429,10 @@ class DuoConnector(BaseConnector):
                         ), None
                     )
                 params["codes"] = ",".join(final_codes)
-            except Exception:
+            except Exception as e:
                 return RetVal(
                         action_result.set_status(
-                            phantom.APP_ERROR, "Parameter is Not Valid"
+                            phantom.APP_ERROR, "Parameter is Not Valid. Error : {}".format(e)
                         ), None
                     )
 
@@ -613,24 +615,60 @@ class DuoConnector(BaseConnector):
         self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
-        endpoint = ENDPOINT_ACTIVATION_CODE_VIA_SMS.format(param["phone_id"])
-        method = "post"
+        endpoint = ENDPOINT_GET_PHONE.format(param["phone_id"])
+
         params = self.get_params(param, PARAMS_ACTIVATION_CODE_VIA_SMS, action_result, action_name=ACTION_ID_ACTIVATION_CODE_VIA_SMS)
 
+        if params.get("valid_secs") and params.get("valid_secs") > 2592000:
+            return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, "valid_sec can not be more than 2592000(30days)"
+                    ), None
+                 )
         if isinstance(params, bool):
             ret_val = params
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
 
-        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+        ret_val, response = self._make_rest_call(endpoint, action_result,)
 
+        if phantom.is_fail(ret_val):
+            return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, "Please provide valid phone_id"
+                    ), None
+                 )
+        try:
+            if len(response["response"].get("number")) == 0:
+                return RetVal(
+                        action_result.set_status(
+                            phantom.APP_ERROR, "Please provide phone number in given phone_id"
+                        ), None
+                    )
+
+            if response["response"].get("type") == "Unknown" or response["response"].get("platform") == "Unknown":
+                return RetVal(
+                        action_result.set_status(
+                            phantom.APP_ERROR, "Action will not work if type or platform is Unknown"
+                        ), None
+                    )
+
+        except Exception as e:
+            return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, "Action Failed. Error : {}".format(e)
+                    ), None
+               )
+        endpoint = ENDPOINT_ACTIVATION_CODE_VIA_SMS.format(param["phone_id"])
+        method = "post"
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
         if phantom.is_fail(ret_val):
             if "40006" in action_result.get_message():
                 return RetVal(action_result.get_status(), None)
 
             return RetVal(
                     action_result.set_status(
-                        phantom.APP_ERROR, "parameters are not valid"
+                        phantom.APP_ERROR, "Parameters are not valid"
                     ), None
                  )
         try:

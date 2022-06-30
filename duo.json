@@ -1673,7 +1673,7 @@
         },
         {
             "action": "delete phone",
-            "description": "Delete Phone",
+            "description": "Delete the phone details for specified phone ID",
             "type": "generic",
             "identifier": "delete_phone",
             "read_only": false,
@@ -1740,6 +1740,7 @@
         {
             "action": "send activation code",
             "description": "Generate a Duo Mobile activation code and send it to the phone via SMS",
+            "verbose": "This action requires phone id that contains valid phone number and it will fail if phone's type or platform is Unknown",
             "type": "generic",
             "identifier": "activation_code_via_sms",
             "read_only": false,
@@ -1755,7 +1756,7 @@
                     ]
                 },
                 "valid_secs": {
-                    "description": "The number of seconds this activation code remains valid",
+                    "description": "The number of seconds this activation code remains valid(Max sec: 2592000)",
                     "data_type": "numeric",
                     "order": 1,
                     "default": 86400
