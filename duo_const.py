@@ -35,6 +35,7 @@ PARAMS_ACTIVATION_CODE_VIA_SMS = ["valid_secs", "install"]
 PARAMS_SYNCHRONIZE_USER_FROM_DIRECTORY = ["username"]
 ENDPOINT_TEST_CONNECTIVITY = '/admin/v1/users'
 ENDPOINT_RETRIEVE_USERS = '/admin/v1/users'
+ENDPOINT_GET_USER = "/admin/v1/users/{}"
 ENDPOINT_GET_PHONE = '/admin/v1/phones/{}'
 ENDPOINT_BYPASSCODE_FOR_USER = '/admin/v1/users/{}/bypass_codes'
 ENDPOINT_ASSOCIATE_PHONE_WITH_USER = '/admin/v1/users/{}/phones'
@@ -53,3 +54,8 @@ SUMMARY_MODIFY_PHONE = "Modify phone successful"
 SUMMARY_ACTIVATION_CODE_VIA_SMS = "Send activation code via SMS successful"
 SUMMARY_SYNCHRONIZE_USER_FROM_DIRECTORY = "API Call Successful"
 SUMMARY_DELETE_PHONE = "Phone deleted successfully"
+MESSAGE_USER_PHONE_ID_FAIL = "Please provide valid user id and phone id (length should be 20,\
+     Combination of Capital alphabet and digits, phone id and user id should Exist)"
+MESSAGE_ID_ALPHABET_FAIL = "Please provide valid {} (Combination of Capital alphabet and digits)"
+MESSAGE_ID_LENGTH_FAIL = "Please provide valid {} (length should be 20)"
+MESSAGE_MUTUALLY_EXCLUSIVE_FAIL = "parameter count and codes are mutually exclusive please provide one of the parameter"

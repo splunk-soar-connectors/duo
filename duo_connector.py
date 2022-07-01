@@ -183,6 +183,35 @@ class DuoConnector(BaseConnector):
 
         return phantom.APP_SUCCESS, parameter
 
+    def _validate_id(self, param, action_result, parameter, endpoint):
+        regex = r"[0-9|A-Z]{20}"
+
+        if not re.fullmatch(regex, param.get(parameter)):
+            if len(param.get(parameter)) != 20:
+                return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, MESSAGE_ID_LENGTH_FAIL.format(parameter)
+                    ), None
+                )
+            else:
+                return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, MESSAGE_ID_ALPHABET_FAIL.format(parameter)
+                    ), None
+                )
+        else:
+
+            interm_endpoint = endpoint.format(param.get(parameter))
+
+            ret_val, response = self._make_rest_call(interm_endpoint, action_result)
+            if phantom.is_fail(ret_val):
+                return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, "{} does not exist".format(parameter)
+                    ), None
+                )
+        return RetVal(action_result.set_status(phantom.APP_SUCCESS), None)
+
     def _make_rest_call(self, endpoint, action_result, method="get", params={}, **kwargs):
         # **kwargs can be any additional parameters that requests.request accepts
 
@@ -292,7 +321,7 @@ class DuoConnector(BaseConnector):
             regex = r"^\+(?:[0-9] ?-?){6,14}[0-9]$"
             processed_number = ""
 
-            if re.search(regex, params["number"]):
+            if re.fullmatch(regex, params["number"]):
 
                 for i in range(len(params["number"])):
                     if not re.search(r"[\s|-]", params["number"][i]):
@@ -302,10 +331,13 @@ class DuoConnector(BaseConnector):
             else:
                 return action_result.set_status(phantom.APP_ERROR, "Phone number is not valid")
 
+        if not params.get("number") and params.get("extension") and self.get_action_identifier() == ACTION_ID_CREATE_PHONE:
+            return action_result.set_status(phantom.APP_ERROR, "Extension must be accompanied with number")
+
         if params.get("extension"):
             regex = r"[0-9|\#|\*]+"
-            if not re.search(regex, params.get("extension")):
-                return action_result.set_status(phantom.APP_ERROR, "Extension not valid")
+            if not re.fullmatch(regex, params.get("extension")):
+                return action_result.set_status(phantom.APP_ERROR, "Invalid phone extension: {}".format(params.get("extension")))
 
         return params
 
@@ -326,7 +358,7 @@ class DuoConnector(BaseConnector):
 
     def _handle_retrieve_users(self, param):
 
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
         endpoint = ENDPOINT_RETRIEVE_USERS
@@ -336,7 +368,7 @@ class DuoConnector(BaseConnector):
             ret_val = params
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
-
+        self.debug_print("Calling API for action retrieve users")
         ret_val, response = self._paginator(endpoint, action_result, method="get", params=params)
 
         if phantom.is_fail(ret_val):
@@ -353,12 +385,19 @@ class DuoConnector(BaseConnector):
 
     def _handle_get_phone(self, param):
 
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return RetVal(
+                    action_result.get_status(), None
+                )
         endpoint = ENDPOINT_GET_PHONE.format(param["phone_id"])
 
-        ret_val, response = self._make_rest_call(endpoint, action_result, method="get",)
+        self.debug_print("Calling API for action get phone")
+
+        ret_val, response = self._make_rest_call(endpoint, action_result,)
 
         if phantom.is_fail(ret_val):
             return RetVal(
@@ -377,9 +416,14 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_bypasscode_for_user(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_user, response = self._validate_id(param=param, action_result=action_result, parameter="user_id", endpoint=ENDPOINT_GET_USER)
+        if phantom.is_fail(ret_user):
+            return RetVal(
+                    action_result.get_status(), None
+                )
         endpoint = ENDPOINT_BYPASSCODE_FOR_USER.format(param["user_id"],)
         method = "post"
 
@@ -436,12 +480,13 @@ class DuoConnector(BaseConnector):
                         ), None
                     )
 
+        self.debug_print("Calling API for action bypasscode for user")
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
         if phantom.is_fail(ret_val):
             if params.get("count") and params["count"] > 0 and params.get("codes"):
                 return RetVal(
                     action_result.set_status(
-                        phantom.APP_ERROR, "parameter count and codes are mutually exclusive please provide one of the parameter"
+                        phantom.APP_ERROR, MESSAGE_MUTUALLY_EXCLUSIVE_FAIL
                     ), None
                  )
 
@@ -461,15 +506,29 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_associate_phone_with_user(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_user, response = self._validate_id(param=param, action_result=action_result, parameter="user_id", endpoint=ENDPOINT_GET_USER)
+        ret_phone, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+
+        if phantom.is_fail(ret_phone) and phantom.is_fail(ret_user):
+            return RetVal(
+                    action_result.set_status(
+                        phantom.APP_ERROR, MESSAGE_USER_PHONE_ID_FAIL
+                    ), None
+                )
+        elif phantom.is_fail(ret_phone) or phantom.is_fail(ret_user):
+            return RetVal(action_result.get_status(), None)
+
         endpoint = ENDPOINT_ASSOCIATE_PHONE_WITH_USER.format(param["user_id"])
         method = "post"
 
         params = {
             "phone_id": param.get("phone_id")
         }
+
+        self.debug_print("Calling API for action associate phone with user")
 
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
         if phantom.is_fail(ret_val):
@@ -489,7 +548,7 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_create_phone(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
         endpoint = ENDPOINT_CREATE_PHONE
@@ -507,7 +566,7 @@ class DuoConnector(BaseConnector):
             ret_val = params
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
-
+        self.debug_print("Calling API for action create phone")
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
 
         if phantom.is_fail(ret_val):
@@ -525,9 +584,7 @@ class DuoConnector(BaseConnector):
                 )
 
             return RetVal(
-                action_result.set_status(
-                    phantom.APP_ERROR, "Please provide valid parameter"
-                ), None
+                action_result.get_status(), None
             )
 
         try:
@@ -540,14 +597,28 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_modify_phone(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
-        endpoint = ENDPOINT_MODIFY_PHONE.format(param["phone_id"])
-        method = "post"
+
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return RetVal(
+                    action_result.get_status(), None
+                )
+
+        endpoint = ENDPOINT_GET_PHONE.format(param["phone_id"])
+        ret_val, response = self._make_rest_call(endpoint, action_result)
+        if phantom.is_fail(ret_val):
+            return RetVal(
+                    action_result.get_status(), None
+                )
+        phone_name = response["response"].get("name")
+
         params = self.get_params(param, PARAMS_MODIFY_PHONE, action_result)
 
-        if isinstance(params, bool):
+        if len(params) == 0:
+            params["name"] = phone_name
             ret_val = params
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
@@ -558,6 +629,9 @@ class DuoConnector(BaseConnector):
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
 
+        endpoint = ENDPOINT_MODIFY_PHONE.format(param["phone_id"])
+        method = "post"
+        self.debug_print("Calling API for action modify phone")
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
 
         if phantom.is_fail(ret_val):
@@ -585,13 +659,20 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_delete_phone(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return RetVal(
+                    action_result.get_status(), None
+                )
+
         endpoint = ENDPOINT_DELETE_PHONE.format(param["phone_id"])
         method = "delete"
         params = {}
 
+        self.debug_print("Calling API for action delete phone")
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
 
         if phantom.is_fail(ret_val):
@@ -612,12 +693,23 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_activation_code_via_sms(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return RetVal(
+                    action_result.get_status(), None
+                )
+
         endpoint = ENDPOINT_GET_PHONE.format(param["phone_id"])
 
         params = self.get_params(param, PARAMS_ACTIVATION_CODE_VIA_SMS, action_result, action_name=ACTION_ID_ACTIVATION_CODE_VIA_SMS)
+
+        if isinstance(params, bool):
+            ret_val = params
+            if phantom.is_fail(ret_val):
+                return RetVal(action_result.get_status(), None)
 
         if params.get("valid_secs") and params.get("valid_secs") > 2592000:
             return RetVal(
@@ -625,11 +717,7 @@ class DuoConnector(BaseConnector):
                         phantom.APP_ERROR, "valid_sec can not be more than 2592000(30days)"
                     ), None
                  )
-        if isinstance(params, bool):
-            ret_val = params
-            if phantom.is_fail(ret_val):
-                return RetVal(action_result.get_status(), None)
-
+        self.debug_print("Calling API for action activation code via sms")
         ret_val, response = self._make_rest_call(endpoint, action_result,)
 
         if phantom.is_fail(ret_val):
@@ -681,7 +769,7 @@ class DuoConnector(BaseConnector):
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_synchronize_user_from_directory(self, param):
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
 
         action_result = self.add_action_result(ActionResult(dict(param)))
         endpoint = ENDPOINT_SYNCHRONIZE_USER_FROM_DIRECTORY.format(param["directory_key"])
@@ -694,6 +782,7 @@ class DuoConnector(BaseConnector):
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
 
+        self.debug_print("Calling API for action synchronize user from directory")
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
 
         if phantom.is_fail(ret_val):

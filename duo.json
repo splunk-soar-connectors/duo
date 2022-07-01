@@ -63,13 +63,13 @@
                     "order": 0
                 },
                 "limit": {
-                    "description": "limit of Response",
+                    "description": "Limit of response",
                     "data_type": "numeric",
                     "order": 1,
                     "default": 100
                 },
                 "offset": {
-                    "description": "offset of Response",
+                    "description": "Offset of response",
                     "data_type": "numeric",
                     "order": 2,
                     "default": 0
@@ -602,7 +602,10 @@
                 },
                 {
                     "data_path": "action_result.parameter.phone_id",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "contains": [
+                        "phone id"
+                    ]
                 },
                 {
                     "data_path": "action_result.data.*.number",
@@ -1319,7 +1322,7 @@
                     "description": "Phone ID",
                     "data_type": "string",
                     "required": true,
-                    "order": 1,
+                    "order": 0,
                     "primary": true,
                     "contains": [
                         "phone id"
@@ -1328,22 +1331,22 @@
                 "number": {
                     "description": "The new number with country code",
                     "data_type": "string",
-                    "order": 2
+                    "order": 1
                 },
                 "name": {
                     "description": "Phone name",
                     "data_type": "string",
-                    "order": 3
+                    "order": 2
                 },
                 "extension": {
                     "description": "Extension. Only 0-9, #, and * are permitted",
                     "data_type": "string",
-                    "order": 4
+                    "order": 3
                 },
                 "type": {
                     "description": "Phone type",
                     "data_type": "string",
-                    "order": 5,
+                    "order": 4,
                     "default": "Unknown",
                     "value_list": [
                         "Unknown",
@@ -1354,7 +1357,7 @@
                 "platform": {
                     "description": "Phone platform",
                     "data_type": "string",
-                    "order": 6,
+                    "order": 5,
                     "default": "Unknown",
                     "value_list": [
                         "Unknown",
@@ -1383,7 +1386,10 @@
                 },
                 {
                     "data_path": "action_result.parameter.phone_id",
-                    "data_type": "string"
+                    "data_type": "string",
+                    "contains": [
+                        "phone id"
+                    ]
                 },
                 {
                     "data_path": "action_result.parameter.number",
@@ -1722,6 +1728,20 @@
                     "data_type": "string"
                 },
                 {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
                     "data_path": "action_result.message",
                     "data_type": "string",
                     "example_values": [
@@ -1740,7 +1760,7 @@
         {
             "action": "send activation code",
             "description": "Generate a Duo Mobile activation code and send it to the phone via SMS",
-            "verbose": "This action requires phone id that contains valid phone number and it will fail if phone's type or platform is Unknown",
+            "verbose": "This action requires phone id that contains valid phone number and it will fail if phone's type or platform is Unknown.",
             "type": "generic",
             "identifier": "activation_code_via_sms",
             "read_only": false,
@@ -1764,7 +1784,7 @@
                 "install": {
                     "description": "Mark checkbox to installation SMS message to be sent before the activation messages. Default: false(Not marked)",
                     "data_type": "boolean",
-                    "order": 4,
+                    "order": 2,
                     "default": false
                 }
             },
@@ -1876,7 +1896,7 @@
             "read_only": false,
             "parameters": {
                 "directory_key": {
-                    "description": "directory_key of the directory",
+                    "description": "Directory key",
                     "data_type": "string",
                     "required": true,
                     "order": 0
@@ -1920,6 +1940,20 @@
                 {
                     "data_path": "action_result.summary.status",
                     "data_type": "string"
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
                 },
                 {
                     "data_path": "action_result.message",
