@@ -187,18 +187,11 @@ class DuoConnector(BaseConnector):
         regex = r"[0-9|A-Z]{20}"
 
         if not re.fullmatch(regex, param.get(parameter)):
-            if len(param.get(parameter)) != 20:
-                return RetVal(
-                    action_result.set_status(
-                        phantom.APP_ERROR, MESSAGE_ID_LENGTH_FAIL.format(parameter)
-                    ), None
-                )
-            else:
-                return RetVal(
-                    action_result.set_status(
-                        phantom.APP_ERROR, MESSAGE_ID_ALPHABET_FAIL.format(parameter)
-                    ), None
-                )
+            return RetVal(
+                action_result.set_status(
+                    phantom.APP_ERROR, MESSAGE_ID_FAIL.format(parameter)
+                ), None
+            )
         else:
 
             interm_endpoint = endpoint.format(param.get(parameter))
@@ -434,6 +427,14 @@ class DuoConnector(BaseConnector):
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
 
+        if params.get("count") is not None and params.get("count") == 0:
+            if params.get("codes") is None:
+                return RetVal(action_result.set_status(
+                                    phantom.APP_ERROR, DUO_POSITIVE_INTEGER_MSG.format(param="count")
+                                ), None)
+            if params.get("codes") and len(params.get("codes")) >= 9:
+                params.pop("count")
+
         if params.get("codes"):
             try:
                 all_codes = params.get("codes")
@@ -510,6 +511,8 @@ class DuoConnector(BaseConnector):
 
         action_result = self.add_action_result(ActionResult(dict(param)))
         ret_user, response = self._validate_id(param=param, action_result=action_result, parameter="user_id", endpoint=ENDPOINT_GET_USER)
+        if phantom.is_fail(ret_user):
+            return RetVal(action_result.get_status(), None)
         ret_phone, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
 
         if phantom.is_fail(ret_phone) and phantom.is_fail(ret_user):

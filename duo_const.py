@@ -44,7 +44,7 @@ ENDPOINT_MODIFY_PHONE = '/admin/v1/phones/{}'
 ENDPOINT_DELETE_PHONE = '/admin/v1/phones/{}'
 ENDPOINT_ACTIVATION_CODE_VIA_SMS = '/admin/v1/phones/{}/send_sms_activation'
 ENDPOINT_SYNCHRONIZE_USER_FROM_DIRECTORY = '/admin/v1/users/directorysync/{}/syncuser'
-ALLOW_ZERO_TRUE = ["offset", "reuse_count", "valid_secs"]
+ALLOW_ZERO_TRUE = ["offset", "reuse_count", "valid_secs", "count"]
 SUMMARY_TEST_CONNECTIVITY = '/admin/v1/users'
 SUMMARY_GET_PHONE = "Phone found successfully"
 SUMMARY_BYPASSCODE_FOR_USER = "Bypasscode generated successful"
@@ -56,6 +56,5 @@ SUMMARY_SYNCHRONIZE_USER_FROM_DIRECTORY = "API Call Successful"
 SUMMARY_DELETE_PHONE = "Phone deleted successfully"
 MESSAGE_USER_PHONE_ID_FAIL = "Please provide valid user id and phone id (length should be 20,\
      Combination of Capital alphabet and digits, phone id and user id should Exist)"
-MESSAGE_ID_ALPHABET_FAIL = "Please provide valid {} (Combination of Capital alphabet and digits)"
-MESSAGE_ID_LENGTH_FAIL = "Please provide valid {} (length should be 20)"
+MESSAGE_ID_FAIL = "Please provide valid {} (length should be 20)(Combination of Capital alphabet and digits)"
 MESSAGE_MUTUALLY_EXCLUSIVE_FAIL = "parameter count and codes are mutually exclusive please provide one of the parameter"
