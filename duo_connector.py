@@ -296,17 +296,58 @@ class DuoConnector(BaseConnector):
             if key in available_keys:
                 params[key] = param[key]
                 if isinstance(params[key], bool) or isinstance(params[key], str):
+                    if key in INT_PARAMETERS:
+                        allow_zero = False
+                        if key in ALLOW_ZERO_TRUE and action_name != ACTION_ID_ACTIVATION_CODE_VIA_SMS:
+                            allow_zero = True
+                        ret_val, _ = self._validate_integer(action_result, params.get(key), key, allow_zero=allow_zero)
+                        if phantom.is_fail(ret_val):
+                            return ret_val
                     continue
-                params[key] = int(params[key])
-                if isinstance(params[key], int):
-                    allow_zero = False
-                    if key in ALLOW_ZERO_TRUE and action_name != ACTION_ID_ACTIVATION_CODE_VIA_SMS:
-                        allow_zero = True
-                    ret_val, _ = self._validate_integer(action_result, params.get(key), key, allow_zero=allow_zero)
-                    if phantom.is_fail(ret_val):
-                        return ret_val
+
+                if isinstance(params[key], int) or isinstance(params[key], float):
+                    regex = r"[0-9]+\.?[0-9]*e\+[0-9]+"
+                    if re.fullmatch(regex, str(params[key])):
+                        try:
+                            params[key] = int(params[key])
+                        except ValueError:
+                            return action_result.set_status(phantom.APP_ERROR, DUO_VALID_INTEGER_MSG.format(param=key)), None
+
+                    if str(params[key]).isdigit():
+                        params[key] = int(params[key])
+                    if isinstance(params[key], int):
+                        allow_zero = False
+                        if key in ALLOW_ZERO_TRUE and action_name != ACTION_ID_ACTIVATION_CODE_VIA_SMS:
+                            allow_zero = True
+                        ret_val, _ = self._validate_integer(action_result, params.get(key), key, allow_zero=allow_zero)
+                        if phantom.is_fail(ret_val):
+                            return ret_val
 
         return params
+
+    def check_dropdown(self, params, action_result):
+
+        if params.get("type") and params.get("platform"):
+            if str(params.get("type")).lower() not in TYPE_LIST and str(params.get("platform")).lower() not in PLATFORM_LIST:
+                return RetVal(
+                    action_result.set_status(phantom.APP_ERROR, "Parameter type and platform are not valid. \
+                        please select valid type and platform"),
+                    None
+                )
+
+        if params.get("type"):
+            if str(params.get("type")).lower() not in TYPE_LIST:
+                return RetVal(
+                    action_result.set_status(phantom.APP_ERROR, "Parameter type is not valid. please select valid type"),
+                    None
+                )
+        if params.get("platform"):
+            if str(params.get("platform")).lower() not in PLATFORM_LIST:
+                return RetVal(
+                    action_result.set_status(phantom.APP_ERROR, "Parameter platform is not valid. please select valid platform"),
+                    None
+                )
+        return RetVal(action_result.set_status(phantom.APP_SUCCESS), None)
 
     def process_with_regex(self, params, action_result):
 
@@ -322,7 +363,7 @@ class DuoConnector(BaseConnector):
 
                 params["number"] = processed_number
             else:
-                return action_result.set_status(phantom.APP_ERROR, "Phone number is not valid")
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_INVALID)
 
         if not params.get("number") and params.get("extension") and self.get_action_identifier() == ACTION_ID_CREATE_PHONE:
             return action_result.set_status(phantom.APP_ERROR, "Extension must be accompanied with number")
@@ -361,6 +402,7 @@ class DuoConnector(BaseConnector):
             ret_val = params
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
+
         self.debug_print("Calling API for action retrieve users")
         ret_val, response = self._paginator(endpoint, action_result, method="get", params=params)
 
@@ -448,14 +490,14 @@ class DuoConnector(BaseConnector):
                         if not code.isdigit():
                             return RetVal(
                                 action_result.set_status(
-                                    phantom.APP_ERROR, "Parameter codes need to be in numeric form not in string {} is not valid".format(code)
+                                    phantom.APP_ERROR, "Provided code is not valid: {}".format(code)
                                 ), None
                             )
                         final_codes.append(code)
                     elif len(code) != 9:
                         return RetVal(
                             action_result.set_status(
-                                phantom.APP_ERROR, "Parameter codes is not valid need exact nine digits"
+                                phantom.APP_ERROR, "Provided code is not valid: {}".format(code)
                             ), None
                         )
 
@@ -464,7 +506,7 @@ class DuoConnector(BaseConnector):
                 if len(final_codes) != len(unique_codes):
                     return RetVal(
                         action_result.set_status(
-                            phantom.APP_ERROR, "Need unique codes. Duplicate codes are not valid"
+                            phantom.APP_ERROR, "Please provide unique codes."
                         ), None
                     )
                 if len(final_codes) > 10:
@@ -491,11 +533,7 @@ class DuoConnector(BaseConnector):
                     ), None
                  )
 
-            return RetVal(
-                action_result.set_status(
-                    phantom.APP_ERROR, "Parameters are not valid."
-                ), None
-            )
+            return RetVal(action_result.get_status(), None)
 
         try:
             action_result.add_data(response['response'])
@@ -535,11 +573,7 @@ class DuoConnector(BaseConnector):
 
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
         if phantom.is_fail(ret_val):
-            return RetVal(
-                action_result.set_status(
-                    phantom.APP_ERROR, "Parameters are not valid."
-                ), None
-            )
+            return RetVal(action_result.get_status(), None)
 
         try:
             action_result.add_data(response['response'])
@@ -556,15 +590,18 @@ class DuoConnector(BaseConnector):
         action_result = self.add_action_result(ActionResult(dict(param)))
         endpoint = ENDPOINT_CREATE_PHONE
         method = "post"
-        params = self.get_params(param, PARAMS_CREATE_PHONE, action_result)
 
+        params = self.get_params(param, PARAMS_CREATE_PHONE, action_result)
         if isinstance(params, bool):
             ret_val = params
             if phantom.is_fail(ret_val):
                 return RetVal(action_result.get_status(), None)
 
-        params = self.process_with_regex(params, action_result)
+        ret_val, _ = self.check_dropdown(params, action_result)
+        if phantom.is_fail(ret_val):
+            return RetVal(action_result.get_status(), None)
 
+        params = self.process_with_regex(params, action_result)
         if isinstance(params, bool):
             ret_val = params
             if phantom.is_fail(ret_val):
@@ -582,7 +619,7 @@ class DuoConnector(BaseConnector):
             elif "number" in action_result.get_message():
                 return RetVal(
                     action_result.set_status(
-                        phantom.APP_ERROR, "Phone number is not valid"
+                        phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_INVALID
                     ), None
                 )
 
@@ -619,7 +656,14 @@ class DuoConnector(BaseConnector):
         phone_name = response["response"].get("name")
 
         params = self.get_params(param, PARAMS_MODIFY_PHONE, action_result)
+        if isinstance(params, bool):
+            ret_val = params
+            if phantom.is_fail(ret_val):
+                return RetVal(action_result.get_status(), None)
 
+        ret_val, _ = self.check_dropdown(param, action_result)
+        if phantom.is_fail(ret_val):
+            return RetVal(action_result.get_status(), None)
         if len(params) == 0:
             params["name"] = phone_name
             ret_val = params
@@ -642,15 +686,11 @@ class DuoConnector(BaseConnector):
             if "number" in action_result.get_message():
                 return RetVal(
                     action_result.set_status(
-                        phantom.APP_ERROR, "Phone number is not valid"
+                        phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_INVALID
                     ), None
                 )
 
-            return RetVal(
-                action_result.set_status(
-                    phantom.APP_ERROR, "Invalid parameter"
-                ), None
-            )
+            return RetVal(action_result.get_status(), None)
 
         try:
             action_result.add_data(response['response'])
@@ -679,12 +719,7 @@ class DuoConnector(BaseConnector):
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
 
         if phantom.is_fail(ret_val):
-
-            return RetVal(
-                action_result.set_status(
-                    phantom.APP_ERROR, "Please provide valid parameter"
-                ), None
-            )
+            return RetVal(action_result.get_status(), None)
 
         try:
             action_result.add_data(response['response'])
@@ -754,14 +789,7 @@ class DuoConnector(BaseConnector):
         method = "post"
         ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
         if phantom.is_fail(ret_val):
-            if "40006" in action_result.get_message():
-                return RetVal(action_result.get_status(), None)
-
-            return RetVal(
-                    action_result.set_status(
-                        phantom.APP_ERROR, "Parameters are not valid"
-                    ), None
-                 )
+            return RetVal(action_result.get_status(), None)
         try:
             action_result.add_data(response['response'])
         except Exception:
