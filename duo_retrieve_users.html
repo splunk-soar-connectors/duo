@@ -121,10 +121,10 @@ and limitations under the License.
                 <tbody>
                     {% for data in result.data.0 %}
                         <tr>
-                            <td>
+                            <td style="max-width:150px; word-break: break-all;">
                                 {{ data.username }}
                             </td>
-                            <td>
+                            <td style="max-width:80px;">
                                <a href="javascript:;" onclick="context_menu(this, [{'contains': ['user id'],
                                     'value':'{{ data.user_id }}' }], 0,
                                     {{ container.id }}, null, false);">
@@ -133,7 +133,7 @@ and limitations under the License.
                                     <span class="fa fa-caret-down" style="font-size: smaller;"></span>
                                 </a>
                             </td>
-                            <td>
+                            <td style="max-width:150px; word-break: break-all;">
                                 {{ data.realname }}
                             </td>
                             <td>
@@ -142,7 +142,7 @@ and limitations under the License.
                             <td>
                                 {{ data.status }}
                             </td>
-                            <td>
+                            <td style="max-width:80px;">
                                 <ul>
                                     {% for phone in data.phones %}
                                         <li style="list-style-type: none;">

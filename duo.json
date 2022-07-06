@@ -52,7 +52,7 @@
         },
         {
             "action": "retrieve users",
-            "description": "Retrieve Users",
+            "description": "Returns list of users",
             "type": "investigate",
             "identifier": "retrieve_users",
             "read_only": true,

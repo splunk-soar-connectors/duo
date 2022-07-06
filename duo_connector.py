@@ -768,14 +768,14 @@ class DuoConnector(BaseConnector):
             if len(response["response"].get("number")) == 0:
                 return RetVal(
                         action_result.set_status(
-                            phantom.APP_ERROR, "Please provide phone number in given phone_id"
+                            phantom.APP_ERROR, "Number is missing from the Phone id. Please provide the phone number in given phone_id"
                         ), None
                     )
 
             if response["response"].get("type") == "Unknown" or response["response"].get("platform") == "Unknown":
                 return RetVal(
                         action_result.set_status(
-                            phantom.APP_ERROR, "Action will not work if type or platform is Unknown"
+                            phantom.APP_ERROR, "Activation code can not be sent if the phone type or platform is Unknown."
                         ), None
                     )
 
