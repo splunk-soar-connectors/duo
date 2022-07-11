@@ -1,93 +1,754 @@
-# Phantom imports
+# File: duo_connector.py
+#
+# Copyright (c) 2022 Splunk Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under
+# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+# either express or implied. See the License for the specific language governing permissions
+# and limitations under the License.
+
+
+import email.utils
+import hashlib
+import hmac
+import json
+import re
+import urllib
+
 import phantom.app as phantom
-from phantom.app import BaseConnector
-from phantom.app import ActionResult
-
 import requests
+from bs4 import BeautifulSoup
+from phantom.app import ActionResult, BaseConnector
 
-from duo_auth import DuoAuth
+from duo_const import *
+
+
+class RetVal(tuple):
+    def __new__(cls, val1, val2):
+        return tuple.__new__(RetVal, (val1, val2))
 
 
 class DuoConnector(BaseConnector):
-    # Supported actions
-    ACTION_ID_AUTHORIZE = 'authorize'
-    ACTION_ID_TEST_ASSET_CONNECTIVITY = 'test_asset_connectivity'
 
     def __init__(self):
         super(DuoConnector, self).__init__()
         self.duo = requests.Session()
         self.api_host = None
+        self.skey = None
+        self.ikey = None
 
     def initialize(self):
         config = self.get_config()
-        self.api_host = config['api_host']
-        self.duo.auth = DuoAuth(skey=config['skey'], ikey=config['ikey'])
-        self.duo.verify = config[phantom.APP_JSON_VERIFY]
+        self.api_host = config['api_host'].rstrip(r"/|\\")
+        self.skey = config['skey']
+        self.ikey = config['ikey']
         return phantom.APP_SUCCESS
 
-    def _authorize(self, param):
-        user = param['user']
-        request_type = param.get('type', 'Phantom request')
-        action_result = ActionResult(dict(param))
-        self.add_action_result(action_result)
-        self.save_progress('Getting authorization from ' + user)
-        try:
-            r = self.duo.post('https://' + self.api_host + '/auth/v2/preauth', data={'username': user})
-            r.raise_for_status()
-            r_json = r.json()['response']
-            if r_json['result'] != 'auth':
-                raise requests.HTTPError('user is not permitted to authenticate')
-            r = self.duo.post('https://' + self.api_host + '/auth/v2/auth', data={'username': user,
-                                                                                  'factor': 'push',
-                                                                                  'device': 'auto',
-                                                                                  'type': request_type,
-                                                                                  'pushinfo': param.get('info')})
-            r.raise_for_status()
-            r_json = r.json()['response']
-            action_result.add_data(r_json)
-        except requests.HTTPError as e:
-            action_result.set_status(phantom.APP_ERROR, 'Authentication request failed', e)
-        else:
-            if r_json['result'] == 'allow':
-                action_result.set_status(phantom.APP_SUCCESS, 'Action authorized')
-            else:
-                action_result.set_status(phantom.APP_ERROR, 'Action not authorized')
-            action_result.add_data(r_json)
-        return action_result.get_status()
+    def auth(self, host, skey, ikey, method="GET", path="/admin/v1/users", params={}):
+        """
+        Return HTTP Basic Authentication ("Authorization" and "Date") headers.
+        method, host, path: strings from request
+        params: dict of request parameters
+        skey: secret key
+        ikey: integration key
+        """
 
-    def _test_asset_connectivity(self):
+        # create canonical string
+        now = email.utils.formatdate()
+        canon = [now, method.upper(), host.lower(), path]
+        args = []
+        for key in sorted(params.keys()):
+            val = params[key].encode("utf-8")
+            args.append(
+                '{}={}'.format(urllib.parse.
+                        quote(key, '~'), urllib.parse.quote(val, '~')))
+        canon.append('&'.join(args))
+        canon = '\n'.join(canon)
+
+        # sign canonical string
+        sig = hmac.new(bytes(skey, encoding='utf-8'),
+                    bytes(canon, encoding='utf-8'),
+                    hashlib.sha1)
+        auth = requests.auth.HTTPBasicAuth(ikey, sig.hexdigest())
+        return RetVal({'Date': now}, auth)
+
+    def _process_empty_response(self, response, action_result):
+        if response.status_code == 200 or response.status_code == 202:
+            return RetVal(phantom.APP_SUCCESS, {})
+
+        return RetVal(
+            action_result.set_status(
+                phantom.APP_ERROR, "Empty response and no information in the header"
+            ), None
+        )
+
+    def _process_html_response(self, response, action_result):
+        # An html response, treat it like an error
+        status_code = response.status_code
+        if status_code == 200:
+            return RetVal(phantom.APP_SUCCESS, response.text)
         try:
-            r = self.duo.get('https://' + self.api_host + '/auth/v2/check')
-            r.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            # Remove the script, style, footer and navigation part from the HTML message
+            for element in soup(["script", "style", "footer", "nav"]):
+                element.extract()
+            error_text = soup.text
+            split_lines = error_text.split('\n')
+            split_lines = [x.strip() for x in split_lines if x.strip()]
+            error_text = '\n'.join(split_lines)
+        except Exception:
+            error_text = "Cannot parse error details"
+
+        message = "Status Code: {0}. Data from server:\n{1}\n".format(status_code, error_text)
+
+        message = message.replace('{', '{{').replace('}', '}}')
+        return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
+
+    def _process_json_response(self, r, action_result):
+        # Try a json parse
+        try:
+            resp_json = r.json()
+        except Exception as e:
+            return RetVal(
+                action_result.set_status(
+                    phantom.APP_ERROR, "Unable to parse JSON response. Error: {0}".format(str(e))
+                ), None
+            )
+
+        # Please specify the status codes here
+        if 200 <= r.status_code < 399:
+            return RetVal(phantom.APP_SUCCESS, resp_json)
+
+        # You should process the error returned in the json
+        message = "Error from server. Status Code: {0} Data from server: {1}".format(
+            r.status_code,
+            r.text.replace(u'{', '{{').replace(u'}', '}}')
+        )
+
+        return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
+
+    def _process_response(self, r, action_result):
+        # store the r_text in debug data, it will get dumped in the logs if the action fails
+        if hasattr(action_result, 'add_debug_data'):
+            action_result.add_debug_data({'r_status_code': r.status_code})
+            action_result.add_debug_data({'r_text': r.text})
+            action_result.add_debug_data({'r_headers': r.headers})
+
+        # Process each 'Content-Type' of response separately
+
+        # Process a json response
+        if 'json' in r.headers.get('Content-Type', ''):
+            return self._process_json_response(r, action_result)
+
+        # Process an HTML response, Do this no matter what the api talks.
+        # There is a high chance of a PROXY in between phantom and the rest of
+        # world, in case of errors, PROXY's return HTML, this function parses
+        # the error and adds it to the action_result.
+        if 'html' in r.headers.get('Content-Type', ''):
+            return self._process_html_response(r, action_result)
+
+        # it's not content-type that is to be parsed, handle an empty response
+        if not r.text:
+            return self._process_empty_response(r, action_result)
+
+        # everything else is actually an error at this point
+        message = "Can't process response from server. Status Code: {0} Data from server: {1}".format(
+            r.status_code,
+            r.text.replace('{', '{{').replace('}', '}}')
+        )
+
+        return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
+
+    def _validate_integer(self, action_result, parameter, key, allow_zero=False):
+        """
+        Validate an integer.
+
+        :param action_result: Action result or BaseConnector object
+        :param parameter: input parameter
+        :param key: input parameter message key
+        :allow_zero: whether zero should be considered as valid value or not
+        :return: status phantom.APP_ERROR/phantom.APP_SUCCESS, integer value of the parameter or None in case of failure
+        """
+        if parameter is not None:
+            try:
+                if not float(parameter).is_integer():
+                    return action_result.set_status(phantom.APP_ERROR, DUO_VALID_INTEGER_MSG.format(param=key)), None
+
+                parameter = int(parameter)
+            except Exception:
+                return action_result.set_status(phantom.APP_ERROR, DUO_VALID_INTEGER_MSG.format(param=key)), None
+
+            if parameter < 0:
+                return action_result.set_status(phantom.APP_ERROR, DUO_NON_NEGATIVE_INTEGER_MSG.format(param=key)), None
+            if not allow_zero and parameter == 0:
+                return action_result.set_status(phantom.APP_ERROR, DUO_POSITIVE_INTEGER_MSG.format(param=key)), None
+
+        return phantom.APP_SUCCESS, parameter
+
+    def _validate_id(self, param, action_result, parameter, endpoint):
+        regex = r"[0-9|A-Z]{20}"
+
+        if not re.fullmatch(regex, param.get(parameter)):
+            return RetVal(
+                action_result.set_status(
+                    phantom.APP_ERROR, MESSAGE_ID_FAIL.format(parameter)
+                ), None
+            )
+        else:
+
+            interm_endpoint = endpoint.format(param.get(parameter))
+
+            ret_val, response = self._make_rest_call(interm_endpoint, action_result)
+            if phantom.is_fail(ret_val):
+                if "Resource not found" in action_result.get_message():
+                    return RetVal(
+                        action_result.set_status(
+                            phantom.APP_ERROR, MESSAGE_ID_NOT_EXISTS.format(parameter)
+                        ), None
+                    )
+                return RetVal(action_result.get_status(), None)
+
+        return RetVal(action_result.set_status(phantom.APP_SUCCESS), response)
+
+    def _make_rest_call(self, endpoint, action_result, method="get", params={}, **kwargs):
+        # **kwargs can be any additional parameters that requests.request accepts
+
+        auth_params = {}
+        for key in params.keys():
+            auth_params[key] = str(params[key])
+        headers, auth = self.auth(host=self.api_host, skey=self.skey, ikey=self.ikey, path=endpoint, method=method, params=auth_params)
+        resp_json = None
+
+        try:
+            request_func = getattr(requests, method)
+        except AttributeError:
+            return RetVal(
+                action_result.set_status(phantom.APP_ERROR, "Invalid method: {0}".format(method)),
+                resp_json
+            )
+
+        # Create a URL to connect to
+        url = "https://{}{}".format(self.api_host, endpoint)
+        try:
+            r = request_func(
+                url,
+                auth=auth,
+                headers=headers,
+                params=params,
+                timeout=DEFAULT_TIMEOUT,
+                **kwargs
+            )
+        except Exception as e:
+            return RetVal(
+                action_result.set_status(
+                    phantom.APP_ERROR, "Error Connecting to server. Details: {0}".format(str(e))
+                ), resp_json
+            )
+
+        return self._process_response(r, action_result)
+
+    def _paginator(self, endpoint, action_result, method="get", params={}, **kwargs):
+        max_limit = DEFAULT_MAX_RESULTS
+
+        response = {}
+        limit_count = params.get("limit")
+
+        while True:
+            ret_val, interim_response = self._make_rest_call(endpoint, action_result,
+                method=method, params=params, **kwargs)
+            if phantom.is_fail(ret_val):
+                return ret_val, interim_response
+
+            if response:
+                if not interim_response.get("metadata", {}).get("next_offset"):
+                    response["metadata"].pop("next_offset")
+                response["metadata"].update(interim_response["metadata"])
+                response["response"].extend(interim_response["response"])
+            else:
+                response = interim_response
+            if not response.get("metadata") or not response.get("metadata", {}).get("next_offset"):
+                break
+
+            if isinstance(limit_count, int):
+                limit_count = limit_count - max_limit
+                params['offset'] = response["metadata"].get("next_offset")
+                limit = min(max_limit, limit_count)
+                params["limit"] = limit
+
+                if params.get("limit") <= 0:
+                    break
+
+            if params.get("limit") is None:
+                break
+
+        return ret_val, response
+
+    def get_params(self, param, parameters, action_result, action_name=""):
+        params = {}
+        for key in parameters:
+            if key in param.keys():
+                params[key] = param[key]
+                if key in INT_PARAMETERS:
+                    allow_zero = key in ALLOW_ZERO_TRUE and action_name != ACTION_ID_ACTIVATION_CODE_VIA_SMS
+                    ret_val, params[key] = self._validate_integer(action_result, params.get(key), key, allow_zero=allow_zero)
+                    if phantom.is_fail(ret_val):
+                        return RetVal(ret_val, None)
+
+        return RetVal(True, params)
+
+    def check_dropdown(self, params, action_result):
+
+        if params.get("type") and params.get("platform"):
+            if str(params.get("type")).lower() not in TYPE_LIST and str(params.get("platform")).lower() not in PLATFORM_LIST:
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_TYPE_PLATFORM_NOT_VALID)
+
+        if params.get("type"):
+            if str(params.get("type")).lower() not in TYPE_LIST:
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_TYPE_NOT_VALID)
+            if params.get("platform") and str(params.get("type")).lower() == "landline" and str(params.get("platform")).lower() != "unknown":
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_LANDLINE_NOT_VALID)
+
+        if params.get("platform") and str(params.get("platform")).lower() not in PLATFORM_LIST:
+            return action_result.set_status(phantom.APP_ERROR, MESSAGE_PLATFORM_NOT_VALID)
+
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def process_phone(self, params, action_result):
+
+        if params.get("number"):
+            params["number"] = re.sub(r"[\s|-]", "", params["number"])
+
+        if not params.get("number") and params.get("extension") and self.get_action_identifier() == ACTION_ID_CREATE_PHONE:
+            return RetVal(action_result.set_status(phantom.APP_ERROR, MESSAGE_ONLY_EXTENSION), None)
+
+        if params.get("extension"):
+            regex = r"[0-9|\#|\*]+"
+            if not re.fullmatch(regex, params.get("extension")):
+                return RetVal(action_result.set_status(phantom.APP_ERROR, MESSAGE_EXTENSION_INVALID.format(params.get("extension"))), None)
+
+        return RetVal(action_result.set_status(phantom.APP_SUCCESS, None), params)
+
+    def _handle_test_connectivity(self, param):
+        self.save_progress("Connecting to endpoint")
+        try:
+            action_result = self.add_action_result(ActionResult(dict(param)))
+            ret_val, response = self._make_rest_call(
+                ENDPOINT_TEST_CONNECTIVITY, action_result, params={"limit": 1}
+            )
+            if phantom.is_fail(ret_val):
+                self.save_progress("Test Connectivity Failed.")
+                return action_result.get_status()
         except requests.HTTPError as e:
             return self.set_status_save_progress(phantom.APP_ERROR, 'Unable to connect to API server', e)
-        return self.set_status_save_progress(phantom.APP_SUCCESS, 'Connections successful')
+        self.save_progress("Test Connectivity Passed")
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_retrieve_users(self, param):
+
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        endpoint = ENDPOINT_RETRIEVE_USERS
+
+        ret_val, params = self.get_params(param, PARAMS_RETRIEVE_USERS, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        self.debug_print("Calling API for action retrieve users")
+        ret_val, response = self._paginator(endpoint, action_result, method="get", params=params)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        for data in response["response"]:
+            action_result.add_data(data)
+
+        summary = action_result.update_summary({})
+        summary['users_found'] = len(response["response"])
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_get_phone(self, param):
+
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        action_result.add_data(response["response"])
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_GET_PHONE
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_bypasscode_for_user(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_user, response = self._validate_id(param=param, action_result=action_result, parameter="user_id", endpoint=ENDPOINT_GET_USER)
+        if phantom.is_fail(ret_user):
+            return action_result.get_status()
+
+        endpoint = ENDPOINT_BYPASSCODE_FOR_USER.format(param["user_id"],)
+        method = "post"
+
+        ret_val, params = self.get_params(param, PARAMS_BYPASSCODE_FOR_USER, action_result)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        if params.get("count") is not None and params.get("count") == 0:
+            if params.get("codes") is None:
+                return action_result.set_status(phantom.APP_ERROR, DUO_POSITIVE_INTEGER_MSG.format(param="count"))
+            if params.get("codes") and len(params.get("codes")) >= 9:
+                params.pop("count")
+
+        if params.get("codes"):
+            all_codes = params.get("codes")
+            all_codes = [x.strip() for x in all_codes.split(",")]
+            all_codes = list(filter(None, all_codes))
+            final_codes = []
+
+            for code in all_codes:
+                code_length = len(code)
+                if code_length == 9:
+                    if not code.isdigit():
+                        return action_result.set_status(phantom.APP_ERROR, MESSAGE_CODE_NOT_VALID.format(code))
+                    final_codes.append(code)
+                elif code_length != 9:
+                    return action_result.set_status(phantom.APP_ERROR, MESSAGE_CODE_NOT_VALID.format(code))
+
+            unique_codes = set(final_codes)
+
+            if len(final_codes) != len(unique_codes):
+                return action_result.set_status(phantom.APP_ERROR, "Please provide unique codes.")
+            if len(final_codes) > 10:
+                return action_result.set_status(phantom.APP_ERROR, "More than ten bypass codes are not allowed")
+            params["codes"] = ",".join(final_codes)
+
+        self.debug_print("Calling API for action bypasscode for user")
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+        if phantom.is_fail(ret_val):
+            if params.get("count") and params["count"] > 0 and params.get("codes"):
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_MUTUALLY_EXCLUSIVE_FAIL)
+
+            return action_result.get_status()
+
+        for data in response["response"]:
+            action_result.add_data(data)
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_BYPASSCODE_FOR_USER
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_associate_phone_with_user(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_user, response = self._validate_id(param=param, action_result=action_result, parameter="user_id", endpoint=ENDPOINT_GET_USER)
+        if phantom.is_fail(ret_user):
+            return action_result.get_status()
+        ret_phone, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+
+        if phantom.is_fail(ret_phone) and phantom.is_fail(ret_user):
+            return action_result.set_status(phantom.APP_ERROR, MESSAGE_USER_PHONE_ID_FAIL)
+        elif phantom.is_fail(ret_phone):
+            return action_result.get_status()
+
+        endpoint = ENDPOINT_ASSOCIATE_PHONE_WITH_USER.format(param["user_id"])
+        method = "post"
+
+        params = {
+            "phone_id": param.get("phone_id")
+        }
+
+        self.debug_print("Calling API for action associate phone with user")
+
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        action_result.add_data(response["response"])
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_ASSOCIATE_PHONE_WITH_USER
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_create_phone(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        endpoint = ENDPOINT_CREATE_PHONE
+        method = "post"
+
+        ret_val, params = self.get_params(param, PARAMS_CREATE_PHONE, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        ret_val = self.check_dropdown(params, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        ret_val, params = self.process_phone(params, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        self.debug_print("Calling API for action create phone")
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+
+        if phantom.is_fail(ret_val):
+            err_message = action_result.get_message()
+            if "40003" in err_message:
+               return action_result.set_status(phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_EXISTS)
+            elif "number" in err_message and "Invalid request parameters" in err_message:
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_INVALID)
+
+            return action_result.get_status()
+
+        action_result.add_data(response["response"])
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_CREATE_PHONE
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_modify_phone(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        ret_val, params = self.get_params(param, PARAMS_MODIFY_PHONE, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        ret_val = self.check_dropdown(param, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        if len(params) == 0:
+            phone_name = response["response"].get("name")
+            params["name"] = phone_name
+
+        ret_val, params = self.process_phone(params, action_result)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        endpoint = ENDPOINT_MODIFY_PHONE.format(param["phone_id"])
+        method = "post"
+
+        self.debug_print("Calling API for action modify phone")
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+
+        if phantom.is_fail(ret_val):
+            err_message = action_result.get_message()
+            if "number" in err_message and "Invalid request parameters" in err_message:
+                return action_result.set_status(phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_INVALID)
+
+            return action_result.get_status()
+
+        action_result.add_data(response["response"])
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_MODIFY_PHONE
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_delete_phone(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        endpoint = ENDPOINT_DELETE_PHONE.format(param["phone_id"])
+        method = "delete"
+        params = {}
+
+        self.debug_print("Calling API for action delete phone")
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        action_result.add_data(response["response"])
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_DELETE_PHONE
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_activation_code_via_sms(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        ret_val, response = self._validate_id(param=param, action_result=action_result, parameter="phone_id", endpoint=ENDPOINT_GET_PHONE)
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        endpoint = ENDPOINT_GET_PHONE.format(param["phone_id"])
+
+        ret_val, params = self.get_params(param, PARAMS_ACTIVATION_CODE_VIA_SMS, action_result, action_name=ACTION_ID_ACTIVATION_CODE_VIA_SMS)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        if params.get("valid_secs") and params.get("valid_secs") > 2592000:
+            return action_result.set_status(phantom.APP_ERROR, MESSAGE_INVALID_SECS)
+
+        self.debug_print("Calling API for action activation code via sms")
+        ret_val, response = self._make_rest_call(endpoint, action_result,)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        if len(response["response"].get("number")) == 0:
+            return action_result.set_status(phantom.APP_ERROR, MESSAGE_PHONE_NUMBER_MISSING)
+
+        if response["response"].get("type") == "Unknown" or response["response"].get("platform") == "Unknown":
+            return action_result.set_status(phantom.APP_ERROR, MESSAGE_UNKNOWN_TYPE_PLATFORM)
+
+        endpoint = ENDPOINT_ACTIVATION_CODE_VIA_SMS.format(param["phone_id"])
+        method = "post"
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        action_result.add_data(response["response"])
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_ACTIVATION_CODE_VIA_SMS
+        return action_result.set_status(phantom.APP_SUCCESS)
+
+    def _handle_synchronize_user_from_directory(self, param):
+        self.debug_print("In action handler for: {0}".format(self.get_action_identifier()))
+
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        endpoint = ENDPOINT_SYNCHRONIZE_USER_FROM_DIRECTORY.format(param["directory_key"])
+        method = "post"
+
+        ret_val, params = self.get_params(param, PARAMS_SYNCHRONIZE_USER_FROM_DIRECTORY, action_result)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        self.debug_print("Calling API for action synchronize user from directory")
+        ret_val, response = self._make_rest_call(endpoint, action_result, method=method, params=params)
+
+        if phantom.is_fail(ret_val):
+            return action_result.get_status()
+
+        try:
+            action_result.add_data(response['response'])
+        except Exception:
+            return action_result.set_status(phantom.APP_ERROR, "Action Failed")
+
+        summary = action_result.update_summary({})
+        summary['status'] = SUMMARY_SYNCHRONIZE_USER_FROM_DIRECTORY
+        return action_result.set_status(phantom.APP_SUCCESS)
 
     def handle_action(self, param):
-        ret_val = phantom.APP_ERROR
+        ret_val = phantom.APP_SUCCESS
         action_id = self.get_action_identifier()
-        if action_id == self.ACTION_ID_AUTHORIZE:
-            ret_val = self._authorize(param)
-        elif action_id == self.ACTION_ID_TEST_ASSET_CONNECTIVITY:
-            ret_val = self._test_asset_connectivity()
-        else:
-            raise ValueError('Action {} is not supported'.format(action_id))
+        if action_id == ACTION_ID_TEST_CONNECTIVITY:
+            ret_val = self._handle_test_connectivity(param)
+        if action_id == ACTION_ID_RETRIEVE_USERS:
+            ret_val = self._handle_retrieve_users(param)
+        if action_id == ACTION_ID_GET_PHONE:
+            ret_val = self._handle_get_phone(param)
+        if action_id == ACTION_ID_BYPASSCODE_FOR_USER:
+            ret_val = self._handle_bypasscode_for_user(param)
+        if action_id == ACTION_ID_ASSOCIATE_PHONE_WITH_USER:
+            ret_val = self._handle_associate_phone_with_user(param)
+        if action_id == ACTION_ID_CREATE_PHONE:
+            ret_val = self._handle_create_phone(param)
+        if action_id == ACTION_ID_MODIFY_PHONE:
+            ret_val = self._handle_modify_phone(param)
+        if action_id == ACTION_ID_DELETE_PHONE:
+            ret_val = self._handle_delete_phone(param)
+        if action_id == ACTION_ID_ACTIVATION_CODE_VIA_SMS:
+            ret_val = self._handle_activation_code_via_sms(param)
+        if action_id == ACTION_ID_SYNCHRONIZE_USER_FROM_DIRECTORY:
+            ret_val = self._handle_synchronize_user_from_directory(param)
         return ret_val
 
 
-if __name__ == '__main__':
-    import simplejson as json
+def main():
+    import argparse
     import sys
 
-    if len(sys.argv) < 2:
-        print 'No test json specified as input'
-        exit(0)
-    with open(sys.argv[1]) as f:
+    import pudb
+
+    pudb.set_trace()
+    argparser = argparse.ArgumentParser()
+
+    argparser.add_argument('input_test_json', help='Input Test JSON file')
+    argparser.add_argument('-u', '--username', help='username', required=False)
+    argparser.add_argument('-p', '--password', help='password', required=False)
+
+    args = argparser.parse_args()
+    session_id = None
+
+    username = args.username
+    password = args.password
+
+    if username is not None and password is None:
+
+        # User specified a username but not a password, so ask
+        import getpass
+        password = getpass.getpass("Password: ")
+
+    if username and password:
+        try:
+            login_url = DuoConnector._get_phantom_base_url() + '/login'
+
+            print("Accessing the Login page")
+            r = requests.get(login_url, verify=False, timeout=DEFAULT_TIMEOUT)
+            csrftoken = r.cookies['csrftoken']
+
+            data = dict()
+            data['username'] = username
+            data['password'] = password
+            data['csrfmiddlewaretoken'] = csrftoken
+
+            headers = dict()
+            headers['Cookie'] = 'csrftoken=' + csrftoken
+            headers['Referer'] = login_url
+
+            print("Logging into Platform to get the session id")
+            r2 = requests.post(login_url, verify=False, data=data, headers=headers)
+            session_id = r2.cookies['sessionid']
+        except Exception as e:
+            print("Unable to get session id from the platform. Error: " + str(e))
+            sys.exit(1)
+
+    with open(args.input_test_json) as f:
         in_json = f.read()
         in_json = json.loads(in_json)
-        print json.dumps(in_json, indent=4)
+        print(json.dumps(in_json, indent=4))
+
         connector = DuoConnector()
         connector.print_progress_message = True
+
+        if session_id is not None:
+            in_json['user_session_token'] = session_id
+            connector._set_csrf_info(csrftoken, headers['Referer'])
+
         ret_val = connector._handle_action(json.dumps(in_json), None)
-        print json.dumps(json.loads(ret_val), indent=4)
-    exit(0)
+        print(json.dumps(json.loads(ret_val), indent=4))
+
+    sys.exit(0)
+
+
+if __name__ == '__main__':
+    main()

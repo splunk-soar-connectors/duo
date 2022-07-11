@@ -1,4 +1,0 @@
-sample_*.json
-*.iml
-.idea*
-.git*
