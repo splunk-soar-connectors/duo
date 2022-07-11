@@ -60,6 +60,10 @@
                 "username": {
                     "description": "Specify a user name (or username alias) to look up for a single user",
                     "data_type": "string",
+                    "primary": true,
+                    "contains": [
+                        "username"
+                    ],
                     "order": 0
                 },
                 "limit": {
@@ -87,6 +91,9 @@
                 {
                     "data_path": "action_result.parameter.username",
                     "data_type": "string",
+                    "contains": [
+                        "username"
+                    ],
                     "example_values": [
                         "root"
                     ]
@@ -103,222 +110,6 @@
                     "data_type": "numeric",
                     "example_values": [
                         0
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.0.*.username",
-                    "data_type": "string"
-                },
-                {
-                    "data_path": "action_result.data.0.*.user_id",
-                    "data_type": "string"
-                },
-                {
-                    "data_path": "action_result.data.0.*.realname",
-                    "data_type": "string"
-                },
-                {
-                    "data_path": "action_result.data.0.*.is_enrolled",
-                    "data_type": "string"
-                },
-                {
-                    "data_path": "action_result.data.0.*.status",
-                    "data_type": "string"
-                },
-                {
-                    "data_path": "summary.total_objects",
-                    "data_type": "numeric",
-                    "example_values": [
-                        1
-                    ]
-                },
-                {
-                    "data_path": "summary.total_objects_successful",
-                    "data_type": "numeric",
-                    "example_values": [
-                        1
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.email",
-                    "data_type": "string",
-                    "example_values": [
-                        "test@gmail.com"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.notes",
-                    "data_type": "string",
-                    "example_values": [
-                        "Nothing"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.alias1",
-                    "data_type": "string",
-                    "example_values": [
-                        "root1"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.alias2",
-                    "data_type": "string",
-                    "example_values": [
-                        "root1_2"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.alias3",
-                    "data_type": "string",
-                    "example_values": [
-                        "root1_3"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.alias4",
-                    "data_type": "string",
-                    "example_values": [
-                        "root1_4"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.aliases.alias1",
-                    "data_type": "string",
-                    "example_values": [
-                        "root1"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.created",
-                    "data_type": "numeric",
-                    "example_values": [
-                        1655297510
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.lastname",
-                    "data_type": "string",
-                    "example_values": [
-                        "Wick"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.firstname",
-                    "data_type": "string",
-                    "example_values": [
-                        "John"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.last_login",
-                    "data_type": "string",
-                    "example_values": [
-                        "2022-06-17T17:55:28"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.last_directory_sync",
-                    "data_type": "string",
-                    "example_values": [
-                        "2022-06-17T17:55:28"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.name",
-                    "data_type": "string",
-                    "example_values": [
-                        "new Phone"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.type",
-                    "data_type": "string",
-                    "example_values": [
-                        "Mobile"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.model",
-                    "data_type": "string",
-                    "example_values": [
-                        "Unknown"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.number",
-                    "data_type": "string",
-                    "example_values": [
-                        "+917383120321"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.phone_id",
-                    "data_type": "string",
-                    "example_values": [
-                        "DPS6PDCLHF3B5SZXN7AA"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.platform",
-                    "data_type": "string",
-                    "example_values": [
-                        "Google Android"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.tampered",
-                    "data_type": "string",
-                    "example_values": [
-                        "Unknown"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.activated",
-                    "data_type": "boolean",
-                    "example_values": [
-                        false
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.encrypted",
-                    "data_type": "string",
-                    "example_values": [
-                        "Unknown"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.extension",
-                    "data_type": "string",
-                    "example_values": [
-                        "*12"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.last_seen",
-                    "data_type": "string",
-                    "example_values": [
-                        "2022-06-17T17:55:28"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.screenlock",
-                    "data_type": "string",
-                    "example_values": [
-                        "Unknown"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.fingerprint",
-                    "data_type": "string",
-                    "example_values": [
-                        "Unknown"
-                    ]
-                },
-                {
-                    "data_path": "action_result.data.*.*.phones.*.sms_passcodes_sent",
-                    "data_type": "boolean",
-                    "example_values": [
-                        false
                     ]
                 },
                 {
@@ -553,8 +344,18 @@
                     ]
                 },
                 {
-                    "data_path": "action_result.summary.status",
-                    "data_type": "numeric"
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric",
+                    "example_values": [
+                        1
+                    ]
                 },
                 {
                     "data_path": "action_result.message",
@@ -1079,7 +880,7 @@
             "read_only": false,
             "parameters": {
                 "number": {
-                    "description": "Number with country code",
+                    "description": "Number with country code. Default country code: +1",
                     "data_type": "string",
                     "order": 0
                 },
@@ -1105,7 +906,7 @@
                     ]
                 },
                 "platform": {
-                    "description": "Phone platform",
+                    "description": "Phone platform(should be unknown for landline type)",
                     "data_type": "string",
                     "order": 4,
                     "default": "Unknown",
@@ -1328,7 +1129,7 @@
                     ]
                 },
                 "number": {
-                    "description": "The new number with country code",
+                    "description": "The new number with country code. Default country code: +1",
                     "data_type": "string",
                     "order": 1
                 },
@@ -1354,7 +1155,7 @@
                     ]
                 },
                 "platform": {
-                    "description": "Phone platform",
+                    "description": "Phone platform(should be unknown for landline type)",
                     "data_type": "string",
                     "order": 5,
                     "default": "Unknown",
@@ -1902,6 +1703,10 @@
                 "username": {
                     "description": "The user to update or create via directory sync. This should be the same as the value for the user's username attribute in the source directory as configured in the sync",
                     "data_type": "string",
+                    "primary": true,
+                    "contains": [
+                        "username"
+                    ],
                     "required": true,
                     "order": 1
                 }
@@ -1921,7 +1726,10 @@
                     "data_path": "action_result.parameter.username",
                     "data_type": "string",
                     "column_name": "User Name",
-                    "column_order": 0
+                    "column_order": 0,
+                    "contains": [
+                        "username"
+                    ]
                 },
                 {
                     "data_path": "action_result.parameter.directory_key",
