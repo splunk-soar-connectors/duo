@@ -1,0 +1,57 @@
+<!-- File: readme.html
+
+    Copyright (c) Splunk, 2022 Inc.
+
+    This unpublished material is proprietary to Splunk.
+    All rights reserved. The methods and
+    techniques described herein are considered trade secrets
+    and/or confidential. Reproduction or distribution, in whole
+    or in part, is forbidden except by express written permission
+    of Splunk.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software distributed under
+    the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+    either express or implied. See the License for the specific language governing permissions
+    and limitations under the License.
+-->
+<html>
+
+<body>
+  <p>
+    <h2>Steps to Configure the Duo Splunk SOAR app's asset</h2>
+    <p>
+      Follow these steps to configure the Duo Splunk SOAR app's asset:
+      <ul>
+        <li>Role required: Owner</li>
+        <li>Note that only administrators with the Owner role can create or modify an Admin API application in the Duo Admin Panel.</li>
+        <ul>
+          <li>Sign up for a Duo account.</li>
+          <li>Log in to the Duo Admin Panel and navigate to Applications.</li>
+          <li>Click Protect an Application and locate the entry for Admin API in the applications list. Click Protect to the far-right to configure the application and get your <b>integration key</b>, <b>secret key</b>, and <b>API hostname</b>.</li>
+          Determine what permissions you want to grant to this Admin API application.
+          <ul>
+            <li>Give Grant read resource and Grant write resource permissions</li>
+          </ul>
+        </ul>
+        <li>Now, Log in to your Splunk SOAR instance.</li>
+        <ul>
+          <li>Navigate to the <b>Home</b> dropdown and select <b>Apps</b>.</li>
+          <li>Search the Duo App from the search box.</li>
+          <li>Click on the <b>CONFIGURE NEW ASSET</b> button.</li>
+          <li>Navigate to the <b>Asset Info</b> tab and enter the Asset name and Asset description.
+          </li>
+          <li>Navigate to the <b>Asset Settings</b>.</li>
+          <li>Paste the generated <b>API hostname</b>, <b>integration key</b>, <b>secret key</b> from Duo UI to its respective configuration parameter.</li>
+          <li>Save the asset.</li>
+          <li>Now, test the connectivity of the Splunk SOAR server to the Duo instance by clicking the <b>TEST CONNECTIVITY</b> button.</li>
+        </ul>
+      </ul>
+</body>
+
+</html>
